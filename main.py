@@ -3,6 +3,90 @@ from tkinter import ttk
 import datetime, time
 import threading
 
+N = 1024
+memoria_principal = [None] * N
+procesos_en_memoria = {}
+contador_proceso = 0
+semaphore = threading.Semaphore()
+
+# asigna espacio en memoria a un proceso
+def asignar_espacio_en_memoria(tiempo_consumo):
+    global contador_proceso
+    for i in range(N):
+        if all([memoria_principal[j] is None for j in range(i, min(i + tiempo_consumo, N))]):
+            contador_proceso += 1
+            for j in range(i, i + tiempo_consumo):
+                memoria_principal[j] = contador_proceso
+            procesos_en_memoria[contador_proceso] = (hex(i), tiempo_consumo)
+            return True
+    return False
+
+#libera espacio en memoria al finalizar un proceso
+def liberar_espacio_en_memoria(id_proceso):
+    inicio, fin = procesos_en_memoria[id_proceso]
+    inicio = int(inicio, 16)  # Convertir inicio a entero
+    fin = inicio + fin - 1  # Calcular el valor final (fin) como inicio + duración - 1
+    for i in range(inicio, fin + 1):
+        memoria_principal[i] = None
+    del procesos_en_memoria[id_proceso]
+
+def ejecutar_proceso(proceso_id, inicio, fin):
+    inicio = int(inicio, 16)  # Convertir inicio a entero
+    fin = inicio + fin - 1  # Calcular el valor final (fin) como inicio + duración - 1
+    for tiempo_restante in range(fin - inicio + 1):
+        direccion_actual = inicio + tiempo_restante
+        time.sleep(1)
+        if tiempo_restante == fin - inicio:
+            liberar_espacio_en_memoria(proceso_id)
+            actualizar_tabla_procesos()
+            agregar_a_historial(proceso_id, "Finalizado", inicio, fin)
+        else:
+            semaphore.release()
+
+def actualizar_tabla_procesos():
+    process_table.delete(*process_table.get_children())
+    for id_proceso, (inicio, fin) in procesos_en_memoria.items():
+        process_table.insert('', 'end', text=str(id_proceso), values=(f'{inicio} s', f'{fin} s'))
+
+def agregar_proceso():
+    tiempo_consumo = random.randint(1, 20)  # Tamaño aleatorio del proceso
+    if not asignar_espacio_en_memoria(tiempo_consumo):
+        messagebox.showinfo("Pila llena", "No se puede agregar más procesos, la pila está llena")
+    else:
+        proceso_id = contador_proceso
+        proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
+        new_processes_text.insert(tk.END, proceso_info)
+        actualizar_tabla_procesos()
+
+def generar_procesos_aleatorios():
+    tiempo_consumo = random.randint(1, 20)  # Tamaño aleatorio del proceso
+    if not asignar_espacio_en_memoria(tiempo_consumo):
+        messagebox.showinfo("Pila llena", "No se puede agregar más procesos, la pila está llena")
+    else:
+        proceso_id = contador_proceso
+        proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
+        new_processes_text.insert(tk.END, proceso_info)
+        actualizar_tabla_procesos()
+
+def ejecutar_procesos_round_robin():
+    tiempo_quantum = 1
+    procesos_en_espera = list(procesos_en_memoria.keys())
+
+    while procesos_en_espera:
+        proceso_actual = procesos_en_espera.pop(0)
+        inicio, fin = procesos_en_memoria[proceso_actual]
+        semaphore.acquire()  # Esperar a que se libere el semáforo
+        hilo_proceso = threading.Thread(target=ejecutar_proceso, args=(proceso_actual, inicio, fin))
+        hilo_proceso.start()
+
+def agregar_a_historial(id_proceso, estado, inicio, fin):
+    historial_info = f"ID: {id_proceso}, Estado: {estado}, Inicio: {inicio} s, Fin: {fin} s\n"
+    historial_text.insert(tk.END, historial_info)
+
+def iniciar_simulacion():
+    generar_procesos_aleatorios()
+    ejecutar_procesos_round_robin()
+
 
 def update_time():
     while True:
