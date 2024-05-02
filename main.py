@@ -36,20 +36,34 @@ def liberar_espacio_en_memoria(id_proceso):
         memoria_principal[i] = None
     del procesos_en_memoria[id_proceso]
 
+def proceso_listo(proceso_id):
+    tiempo_listo = time.strftime('%H:%M:%S')
+    agregar_a_historial(proceso_id, "Listo", tiempo_listo)
+
+def proceso_en_espera(proceso_id):
+    tiempo_espera = time.strftime('%H:%M:%S')
+    agregar_a_historial(proceso_id, "En espera", tiempo_espera)
 
 
 def ejecutar_proceso(proceso_id, inicio, fin):
-    inicio = int(inicio, 16)  # Convertir inicio a entero
-    fin = inicio + fin - 1  # Calcular el valor final (fin) como inicio + duración - 1
+    inicio = int(inicio, 16)
+    fin = inicio + fin - 1
+    proceso_listo(proceso_id)
+    tiempo_inicio = datetime.datetime.now().strftime("%H:%M:%S")
     for tiempo_restante in range(fin - inicio + 1):
         direccion_actual = inicio + tiempo_restante
         time.sleep(1)
         if tiempo_restante == fin - inicio:
             liberar_espacio_en_memoria(proceso_id)
             actualizar_tabla_procesos()
-            agregar_a_historial(proceso_id, "Finalizado", inicio, fin)
-        else:
+            tiempo_fin = datetime.datetime.now().strftime("%H:%M:%S")
+            agregar_a_historial(proceso_id, "Finalizado", tiempo_inicio, tiempo_fin)
             semaphore.release()
+        elif tiempo_restante == 0:
+            agregar_a_historial(proceso_id, "Ejecución", tiempo_inicio)
+        else:
+            proceso_en_espera(proceso_id)
+    semaphore.release()
 
 def actualizar_tabla_procesos():
     process_table.delete(*process_table.get_children())
@@ -93,17 +107,15 @@ def ejecutar_procesos_round_robin():
         hilo_proceso.start()
 
 def agregar_a_historial(id_proceso, estado, hora_inicio, hora_fin=None):
-    if estado == "Finalizado":
-    #historial_info = f"ID: {id_proceso}, Estado: {estado}, Inicio: {inicio} s, Fin: {fin} s\n"
-        historial.insert('', 'end', text=id_proceso, values=(estado, hora_inicio, hora_fin ))
-        #historial.insert('', 'end', text=id_proceso, values=(estado, inicio, fin))
-        #historial_text.insert(tk.END, historial_info)
-    else:
+    if estado == "Finalizado" or estado == "Ejecución":
         historial.insert('', 'end', text=id_proceso, values=(estado, hora_inicio, hora_fin))
+    else:
+        historial.insert('', 'end', text=id_proceso, values=(estado, hora_inicio))
+
 
 def iniciar_simulacion():
-   # generar_procesos_aleatorios()
-    ejecutar_procesos_round_robin()
+    hilo_ejecucion = threading.Thread(target=ejecutar_procesos_round_robin)
+    hilo_ejecucion.start()
 
 
 def update_time():
