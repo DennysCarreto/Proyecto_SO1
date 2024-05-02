@@ -64,17 +64,29 @@ def simulacion_round_robin(lista_procesos):
             planificador_value.config(text="Libre")
             base_limite_values.config(text="Base: 0, Límite: 0")
 
-# Función para iniciar la simulación de la planificación de procesos
+# Obtener los datos de la tabla de procesos y crear el diccionario lista_procesos
+def obtener_lista_procesos():
+    lista_procesos = []
+    
+    for item in process_table.get_children():
+        nombre_proceso = process_table.item(item, "text")
+        tiempo_llegada = int(process_table.item(item, "values")[0])
+        tiempo_consumo = int(process_table.item(item, "values")[1])
+        
+        proceso = {'nombre': nombre_proceso, 'tiempo_llegada': tiempo_llegada, 'tiempo_consumo': tiempo_consumo}
+        lista_procesos.append(proceso)
+    
+    return lista_procesos
+
+# Obtener la lista de procesos al iniciar la simulación
 def iniciar_simulacion():
-    # Lista de procesos definidos en la tabla
-    lista_procesos = [
-        {'nombre': 'P1', 'tiempo_consumo': 5},
-        {'nombre': 'P2', 'tiempo_consumo': 3},
-        {'nombre': 'P3', 'tiempo_consumo': 4}
-    ]
+    global lista_procesos
+    lista_procesos = obtener_lista_procesos()
     
     # Iniciar la simulación en un hilo separado
     threading.Thread(target=simulacion_round_robin, args=(lista_procesos,)).start()
+
+
 
 # Crear la ventana principal
 root = tk.Tk()
@@ -168,7 +180,7 @@ contador = tk.IntVar(value=0)
 lblcontador = tk.Label(time_frame, textvariable=contador, font=("Arial", 12))
 lblcontador.pack()
 
-# Crear el botón "Iniciar" para la simulación
+# Botón para iniciar la simulación de la planificación de procesos
 iniciar_button = tk.Button(main_frame, text="Iniciar Simulación", command=iniciar_simulacion)
 iniciar_button.grid(row=2, column=0, columnspan=4, pady=10)
 
