@@ -2,6 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 import datetime, time
 import threading
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+import threading
+import time
+import random
 
 N = 1024
 memoria_principal = [None] * N
@@ -30,6 +36,8 @@ def liberar_espacio_en_memoria(id_proceso):
         memoria_principal[i] = None
     del procesos_en_memoria[id_proceso]
 
+
+
 def ejecutar_proceso(proceso_id, inicio, fin):
     inicio = int(inicio, 16)  # Convertir inicio a entero
     fin = inicio + fin - 1  # Calcular el valor final (fin) como inicio + duración - 1
@@ -46,7 +54,7 @@ def ejecutar_proceso(proceso_id, inicio, fin):
 def actualizar_tabla_procesos():
     process_table.delete(*process_table.get_children())
     for id_proceso, (inicio, fin) in procesos_en_memoria.items():
-        process_table.insert('', 'end', text=str(id_proceso), values=(f'{inicio} s', f'{fin} s'))
+        process_table.insert('', 'end', text=str(id_proceso), values=(f'{int(inicio, 16)} s', f'{fin} s'))
 
 def agregar_proceso():
     tiempo_consumo = random.randint(1, 20)  # Tamaño aleatorio del proceso
@@ -54,8 +62,10 @@ def agregar_proceso():
         messagebox.showinfo("Pila llena", "No se puede agregar más procesos, la pila está llena")
     else:
         proceso_id = contador_proceso
-        proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
-        new_processes_text.insert(tk.END, proceso_info)
+        tiempo_llegada = time.strftime('%H:%M:%S')
+        #proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
+        process_table.insert('', 'end', text=str(proceso_id), values=(tiempo_llegada, tiempo_consumo))
+        #new_processes_text.insert(tk.END, proceso_info)
         actualizar_tabla_procesos()
 
 def generar_procesos_aleatorios():
@@ -64,12 +74,15 @@ def generar_procesos_aleatorios():
         messagebox.showinfo("Pila llena", "No se puede agregar más procesos, la pila está llena")
     else:
         proceso_id = contador_proceso
+        tiempo_llegada = time.strftime('%H:%M:%S')
         proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
-        new_processes_text.insert(tk.END, proceso_info)
+        process_table.insert('', 'end', text=str(proceso_id), values=(tiempo_llegada, tiempo_consumo))
+        #process_table.insert(tk.END,proceso_info)
+        #new_processes_text.insert(tk.END, proceso_info)
         actualizar_tabla_procesos()
 
 def ejecutar_procesos_round_robin():
-    tiempo_quantum = 1
+    tiempo_quantum = 5
     procesos_en_espera = list(procesos_en_memoria.keys())
 
     while procesos_en_espera:
@@ -79,12 +92,17 @@ def ejecutar_procesos_round_robin():
         hilo_proceso = threading.Thread(target=ejecutar_proceso, args=(proceso_actual, inicio, fin))
         hilo_proceso.start()
 
-def agregar_a_historial(id_proceso, estado, inicio, fin):
-    historial_info = f"ID: {id_proceso}, Estado: {estado}, Inicio: {inicio} s, Fin: {fin} s\n"
-    historial_text.insert(tk.END, historial_info)
+def agregar_a_historial(id_proceso, estado, hora_inicio, hora_fin=None):
+    if estado == "Finalizado":
+    #historial_info = f"ID: {id_proceso}, Estado: {estado}, Inicio: {inicio} s, Fin: {fin} s\n"
+        historial.insert('', 'end', text=id_proceso, values=(estado, hora_inicio, hora_fin ))
+        #historial.insert('', 'end', text=id_proceso, values=(estado, inicio, fin))
+        #historial_text.insert(tk.END, historial_info)
+    else:
+        historial.insert('', 'end', text=id_proceso, values=(estado, hora_inicio, hora_fin))
 
 def iniciar_simulacion():
-    generar_procesos_aleatorios()
+   # generar_procesos_aleatorios()
     ejecutar_procesos_round_robin()
 
 
@@ -121,17 +139,19 @@ process_frame.grid(row=0, column=0, padx=5, pady=5)
 process_table = ttk.Treeview(process_frame)
 process_table['columns'] = ('TL', 'TC')
 process_table.column('#0', width=50, minwidth=50, anchor='center')
-process_table.column('TL', width=100, minwidth=100, anchor='center')
-process_table.column('TC', width=100, minwidth=100, anchor='center')
+process_table.column('TL', width=90, minwidth=50, anchor='center')
+process_table.column('TC', width=50, minwidth=50, anchor='center')
 process_table.heading('#0', text='P', anchor='center')
 process_table.heading('TL', text='TL', anchor='center')
 process_table.heading('TC', text='TC', anchor='center')
 
+'''
 # Insertar datos de ejemplo en la tabla de procesos
 process_table.insert('', 'end', text='A', values=('1', '3'))
 process_table.insert('', 'end', text='B', values=('4', '5'))
 process_table.insert('', 'end', text='C', values=('1', '2'))
 process_table.insert('', 'end', text='D', values=('5', '3'))
+'''
 
 process_table.grid(row=1, column=0, padx=5, pady=5)
 
@@ -144,15 +164,12 @@ memory_frame = tk.Frame(main_frame, relief='sunken', borderwidth=2)
 memory_frame.grid(row=0, column=1, padx=5, pady=5)
 
 # Agregar los rectángulos de colores para representar la memoria principal
-system_os = tk.Label(memory_frame, text="S.O.\n" * 1, background="blue", wraplength=50)
+system_os = tk.Label(memory_frame, text="S.O.\n" * 1, background="cyan", wraplength=50, width=15)
 system_os.pack(side='bottom', fill='x')
-
 process_a = tk.Label(memory_frame, text="A\n" * 2, background="green", wraplength=50)
 process_a.pack(side='bottom', fill='x')
-
 process_b = tk.Label(memory_frame, text="B\n" * 2, background="red", wraplength=50)
 process_b.pack(side='bottom', fill='x')
-
 process_c = tk.Label(memory_frame, text="C\n" * 2, background="red", wraplength=50)
 process_c.pack(side='bottom', fill='x')
 
@@ -179,22 +196,24 @@ base_limite.pack(pady=5)
 base_limite_values = tk.Label(cpu_frame, text="b h", font=("Arial", 12, "bold"))
 base_limite_values.pack(pady=5)
 
-proceso_table = ttk.Treeview(cpu_frame, height=3)
-proceso_table['columns'] = ('Estado', 'Hora inicio', 'Hora fin')
-proceso_table.column('#0', width=50, minwidth=50, anchor='center')
-proceso_table.column('Estado', width=100, minwidth=100, anchor='center')
-proceso_table.column('Hora inicio', width=100, minwidth=100, anchor='center')
-proceso_table.column('Hora fin', width=100, minwidth=100, anchor='center')
-proceso_table.heading('#0', text='ID', anchor='center')
-proceso_table.heading('Estado', text='Estado', anchor='center')
-proceso_table.heading('Hora inicio', text='Hora inicio', anchor='center')
-proceso_table.heading('Hora fin', text='Hora fin', anchor='center')
+historial = ttk.Treeview(cpu_frame, height=3)
+historial['columns'] = ('Estado', 'Hora inicio', 'Hora fin')
+historial.column('#0', width=50, minwidth=50, anchor='center')
+historial.column('Estado', width=100, minwidth=100, anchor='center')
+historial.column('Hora inicio', width=100, minwidth=100, anchor='center')
+historial.column('Hora fin', width=100, minwidth=100, anchor='center')
+historial.heading('#0', text='ID', anchor='center')
+historial.heading('Estado', text='Estado', anchor='center')
+historial.heading('Hora inicio', text='Hora inicio', anchor='center')
+historial.heading('Hora fin', text='Hora fin', anchor='center')
 
-proceso_table.insert('', 'end', text='a', values=('new', '13:00:00', '13:00:04'))
-proceso_table.insert('', 'end', text='b', values=('lists', '13:00:04', '13:00:08'))
-proceso_table.insert('', 'end', text='c', values=('lists', '13:00:08', ''))
+'''
+historial.insert('', 'end', text='a', values=('new', '13:00:00', '13:00:04'))
+historial.insert('', 'end', text='b', values=('lists', '13:00:04', '13:00:08'))
+historial.insert('', 'end', text='c', values=('lists', '13:00:08', ''))
+'''
 
-proceso_table.pack(pady=5)
+historial.pack(pady=5)
 
 # Crear un frame para la hora del sistema
 time_frame = tk.Frame(main_frame)
@@ -211,8 +230,11 @@ lblcontador = tk.Label(time_frame, textvariable=contador, font=("Arial", 12))
 lblcontador.pack(pady=5)
 
 # Crear el botón "Iniciar"
-iniciar_button = tk.Button(main_frame, text="Iniciar")
+iniciar_button = tk.Button(main_frame, text="Iniciar", command=iniciar_simulacion)
 iniciar_button.grid(row=2, column=0, columnspan=4, pady=10)
+
+agregar_button = tk.Button(main_frame, text="Agregar Proceso", command=agregar_proceso)
+agregar_button.grid(row=1, columnspan=4, pady=10)
 
 # Hilos para actualización de la hora y contador
 hilo_contador = threading.Thread(target=update_contador)
