@@ -13,6 +13,8 @@ N = 1024
 memoria_principal = [None] * N
 procesos_en_memoria = {}
 contador_proceso = 0
+memoria_height = 0
+proceso_en_ejecucion = None
 semaphore = threading.Semaphore()
 
 # asigna espacio en memoria a un proceso
@@ -42,12 +44,14 @@ def proceso_listo(proceso_id):
 
 def proceso_en_espera(proceso_id):
     tiempo_espera = time.strftime('%H:%M:%S')
-    agregar_a_historial(proceso_id, "En espera", tiempo_espera)
+    agregar_a_historial(proceso_id, "En ejecucion", tiempo_espera)
 
 
 def ejecutar_proceso(proceso_id, inicio, fin):
+    global proceso_en_ejecucion
     inicio = int(inicio, 16)
     fin = inicio + fin - 1
+    proceso_en_ejecucion = proceso_id
     proceso_listo(proceso_id)
     tiempo_inicio = datetime.datetime.now().strftime("%H:%M:%S")
     for tiempo_restante in range(fin - inicio + 1):
@@ -58,11 +62,17 @@ def ejecutar_proceso(proceso_id, inicio, fin):
             actualizar_tabla_procesos()
             tiempo_fin = datetime.datetime.now().strftime("%H:%M:%S")
             agregar_a_historial(proceso_id, "Finalizado", tiempo_inicio, tiempo_fin)
+            proceso_en_ejecucion = None
+            planificador_value.config(text="Sin proceso")
+            base_limite_values.config(text="b h")  # Restablecer el valor en "b h"
             semaphore.release()
         elif tiempo_restante == 0:
-            agregar_a_historial(proceso_id, "Ejecución", tiempo_inicio)
+            proceso_en_espera(proceso_id)
         else:
             proceso_en_espera(proceso_id)
+            proceso_en_ejecucion = proceso_id
+            planificador_value.config(text=str(proceso_id))
+            base_limite_values.config(text=f"{hex(fin)} h")  # Mostrar el límite en memoria en hexadecimal
     semaphore.release()
 
 def actualizar_tabla_procesos():
@@ -79,8 +89,8 @@ def agregar_proceso():
         tiempo_llegada = time.strftime('%H:%M:%S')
         #proceso_info = f"ID: {proceso_id}, Tiempo de llegada: {time.strftime('%H:%M:%S')}, Tiempo de consumo: {tiempo_consumo} s\n"
         process_table.insert('', 'end', text=str(proceso_id), values=(tiempo_llegada, tiempo_consumo))
-        #new_processes_text.insert(tk.END, proceso_info)
         actualizar_tabla_procesos()
+        agregar_proceso_en_memoria_visual(proceso_id)
 
 def generar_procesos_aleatorios():
     tiempo_consumo = random.randint(1, 20)  # Tamaño aleatorio del proceso
@@ -94,6 +104,22 @@ def generar_procesos_aleatorios():
         #process_table.insert(tk.END,proceso_info)
         #new_processes_text.insert(tk.END, proceso_info)
         actualizar_tabla_procesos()
+
+def agregar_proceso_en_memoria_visual(proceso_id):
+    global memoria_height
+    inicio, fin = procesos_en_memoria[proceso_id]
+    inicio = int(inicio, 16)
+    fin = inicio + fin
+    # Calcular  posición vertical
+    proceso_y = memoria_height
+    # Calcular el alto del nuevo proceso
+    proceso_height = (fin +40 - inicio + 30)
+
+    proceso_label = tk.Label(memory_frame, text=f"Proceso {proceso_id}", background="green", wraplength=50)
+    memoria_height += proceso_height - 45
+    memory_frame.create_window(30, proceso_y + proceso_height / 1, anchor='nw', window=proceso_label, width=100,
+                               height=proceso_height -1000)
+    memory_frame.config(scrollregion=(30, 1024, 250, memoria_height))
 
 def ejecutar_procesos_round_robin():
     tiempo_quantum = 5
@@ -128,13 +154,23 @@ def update_time():
 def update_contador():
     while True:
         contador.set(contador.get() + 1)
+        if proceso_en_ejecucion is not None:
+            planificador_value.config(text=str(proceso_en_ejecucion))
+        else:
+            planificador_value.config(text="Sin proceso")
         time.sleep(1)
+
+def update_contador_hex():
+    while True:
+        contador_hex.set(hex(contador.get()))
+        time.sleep(1)
+
 
 
 # Crear la ventana principal
 root = tk.Tk()
 root.title("URL 2024")
-
+contador_hex = tk.StringVar(value='0x0')
 # Crear los estilos para los widgets
 style = ttk.Style()
 style.theme_use("clam")
@@ -172,18 +208,11 @@ process_label = tk.Label(process_frame, text="Tabla de Procesos", font=("Arial",
 process_label.grid(row=0, column=0, padx=5, pady=5)
 
 # Crear la memoria principal
-memory_frame = tk.Frame(main_frame, relief='sunken', borderwidth=2)
+memory_frame = tk.Canvas(main_frame, relief='sunken', borderwidth=2, width=100, height=400)
 memory_frame.grid(row=0, column=1, padx=5, pady=5)
+so_label = tk.Label(memory_frame, text="S.O.", background="cyan", wraplength=50)
+so_label.place(x=5, y=19, width=100, height=40)
 
-# Agregar los rectángulos de colores para representar la memoria principal
-system_os = tk.Label(memory_frame, text="S.O.\n" * 1, background="cyan", wraplength=50, width=15)
-system_os.pack(side='bottom', fill='x')
-process_a = tk.Label(memory_frame, text="A\n" * 2, background="green", wraplength=50)
-process_a.pack(side='bottom', fill='x')
-process_b = tk.Label(memory_frame, text="B\n" * 2, background="red", wraplength=50)
-process_b.pack(side='bottom', fill='x')
-process_c = tk.Label(memory_frame, text="C\n" * 2, background="red", wraplength=50)
-process_c.pack(side='bottom', fill='x')
 
 # Crear el CPU
 cpu_frame = tk.LabelFrame(main_frame, text="CPU", relief='raised', borderwidth=2)
@@ -193,19 +222,19 @@ cpu_frame.grid(row=0, column=2, padx=5, pady=5)
 planificador = tk.Label(cpu_frame, text="Planificador")
 planificador.pack(pady=5)
 
-planificador_value = tk.Label(cpu_frame, text="A", font=("Arial", 12, "bold"))
+planificador_value = tk.Label(cpu_frame, text="Sin proceso", font=("Arial", 12, "bold"))
 planificador_value.pack(pady=5)
 
 contador_programa = tk.Label(cpu_frame, text="Contador de programa")
 contador_programa.pack(pady=5)
 
-contador_programa_value = tk.Label(cpu_frame, text="d", font=("Arial", 12, "bold"))
-contador_programa_value.pack(pady=5)
+contador_programa_hex_value = tk.Label(cpu_frame, textvariable=contador_hex, font=("Arial", 12, "bold"))
+contador_programa_hex_value.pack(pady=5)
 
 base_limite = tk.Label(cpu_frame, text="Base Limite")
 base_limite.pack(pady=5)
 
-base_limite_values = tk.Label(cpu_frame, text="b h", font=("Arial", 12, "bold"))
+base_limite_values = tk.Label(cpu_frame, text="", font=("Arial", 12, "bold"))
 base_limite_values.pack(pady=5)
 
 historial = ttk.Treeview(cpu_frame, height=3)
@@ -253,6 +282,8 @@ hilo_contador = threading.Thread(target=update_contador)
 hilo_contador.start()
 hilo_time = threading.Thread(target=update_time)
 hilo_time.start()
+hilo_contador_hex = threading.Thread(target=update_contador_hex)
+hilo_contador_hex.start()
 
 
 root.mainloop()
